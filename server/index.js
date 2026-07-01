@@ -20,6 +20,26 @@ const PORT = process.env.PORT || 8080;
 const app = express();
 app.use(express.static(path.join(__dirname, '..', 'client')));
 
+/**
+ * WebRTC ICE configuration, delivered to both peers at runtime.
+ * STUN is always included; a TURN relay is added when env vars are set:
+ *   TURN_URL         e.g. "turn:relay.example.com:3478" (comma-separate for many)
+ *   TURN_USERNAME
+ *   TURN_CREDENTIAL
+ * Keeping TURN credentials here (not in client code) avoids committing secrets.
+ */
+app.get('/config', (_req, res) => {
+  const iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
+  if (process.env.TURN_URL) {
+    iceServers.push({
+      urls: process.env.TURN_URL.split(',').map((u) => u.trim()),
+      username: process.env.TURN_USERNAME,
+      credential: process.env.TURN_CREDENTIAL,
+    });
+  }
+  res.json({ iceServers });
+});
+
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 

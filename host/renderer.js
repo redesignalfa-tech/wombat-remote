@@ -7,7 +7,22 @@
  * process for OS-level injection.
  */
 
-const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
+const DEFAULT_ICE = [{ urls: 'stun:stun.l.google.com:19302' }];
+
+let serverUrl = '';
+
+// Fetch ICE (STUN/TURN) config from the signaling server over http(s),
+// derived from the ws(s) URL the host connected to. Falls back to STUN.
+async function getIceServers() {
+  try {
+    const httpBase = serverUrl.replace(/^ws/, 'http').replace(/\/+$/, '');
+    const res = await fetch(`${httpBase}/config`);
+    const data = await res.json();
+    return data.iceServers || DEFAULT_ICE;
+  } catch {
+    return DEFAULT_ICE;
+  }
+}
 
 const $ = (id) => document.getElementById(id);
 const serverInput = $('server');
@@ -36,6 +51,7 @@ startBtn.addEventListener('click', () => {
 });
 
 function connect(url) {
+  serverUrl = url;
   setStatus('Connecting to server…');
   ws = new WebSocket(url);
 
@@ -88,7 +104,7 @@ async function startSharing() {
     audio: false,
   });
 
-  pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+  pc = new RTCPeerConnection({ iceServers: await getIceServers() });
 
   stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 

@@ -1,0 +1,7 @@
+node_modules
+host
+dist
+out
+.git
+*.log
+.DS_Store

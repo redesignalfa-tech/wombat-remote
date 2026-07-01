@@ -7,7 +7,18 @@
  * its own screen resolution.
  */
 
-const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
+const DEFAULT_ICE = [{ urls: 'stun:stun.l.google.com:19302' }];
+
+// Fetch ICE (STUN/TURN) config from the signaling server, falling back to STUN.
+async function getIceServers() {
+  try {
+    const res = await fetch('/config');
+    const data = await res.json();
+    return data.iceServers || DEFAULT_ICE;
+  } catch {
+    return DEFAULT_ICE;
+  }
+}
 
 const $ = (id) => document.getElementById(id);
 const connectPanel = $('connect');
@@ -63,7 +74,7 @@ function join() {
     switch (msg.type) {
       case 'joined':
         showSession();
-        setupPeer();
+        await setupPeer();
         break;
       case 'error':
         joinBtn.disabled = false;
@@ -93,8 +104,8 @@ function showSession() {
   sessionPanel.classList.remove('hidden');
 }
 
-function setupPeer() {
-  pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+async function setupPeer() {
+  pc = new RTCPeerConnection({ iceServers: await getIceServers() });
 
   pc.ontrack = (e) => {
     video.srcObject = e.streams[0];

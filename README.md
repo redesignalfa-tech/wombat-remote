@@ -59,13 +59,36 @@ npm run host
 
 ## Use over the internet
 
-The signaling server must be reachable by both peers. Deploy `server/` to any
-host (e.g. a small VM) and point the host app's *Signaling server* field at it
-(`ws://your-server:8080` or `wss://…` behind TLS). Because peers are usually
-behind NAT, add a **TURN** server to `ICE_SERVERS` in both
-[`host/renderer.js`](host/renderer.js) and [`client/client.js`](client/client.js)
-— STUN alone won't traverse symmetric NATs. [coturn](https://github.com/coturn/coturn)
-is a common self-hosted option.
+Only the **signaling server + web client** go online; the Electron host stays on
+your machine and connects out to that server. Deploy the included
+[`Dockerfile`](Dockerfile) to any platform that supports **persistent WebSockets**
+— **Railway**, **Render**, **Fly.io**, or a VM. (Vercel/Netlify **won't work**:
+serverless functions can't hold a WebSocket open.)
+
+**Deploy (Railway/Render, no CLI needed):**
+
+1. Push this repo to GitHub (already done if you cloned from there).
+2. Create a new project → **Deploy from GitHub repo** → pick this repo.
+   Both Railway and Render auto-detect the `Dockerfile`.
+3. After it builds, you get a public URL like `https://your-app.up.railway.app`.
+4. In the Electron host, set **Signaling server** to
+   `wss://your-app.up.railway.app` (note: `wss`, no port).
+5. Open `https://your-app.up.railway.app` in a browser to use the client.
+
+**TURN (for NAT traversal):** most home/mobile networks need a TURN relay — STUN
+alone can't traverse symmetric NATs. ICE config is served from `GET /config` and
+built from environment variables, so set these on your deployment (no code
+changes, no secrets in git):
+
+| Variable          | Example                                 |
+| ----------------- | --------------------------------------- |
+| `TURN_URL`        | `turn:relay.example.com:3478` (comma-separate multiple) |
+| `TURN_USERNAME`   | `your-username`                         |
+| `TURN_CREDENTIAL` | `your-credential`                       |
+
+Get free/cheap TURN credentials from [Metered Open Relay](https://www.metered.ca/tools/openrelay/)
+or self-host [coturn](https://github.com/coturn/coturn). Without TURN, connections
+still work when at least one peer has a permissive NAT.
 
 ## Project layout
 
@@ -76,6 +99,7 @@ is a common self-hosted option.
 | `host/renderer.js`   | Host WebRTC: capture screen, create offer, data channel     |
 | `host/preload.js`    | Safe IPC bridge (`window.wombat.sendInput`)                 |
 | `client/`            | Browser client: view screen, capture & send input           |
+| `Dockerfile`         | Lean image for deploying the signaling server + client      |
 
 ## Security notes
 
