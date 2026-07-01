@@ -1,0 +1,16 @@
+{
+  "name": "wombat-remote",
+  "version": "0.1.0",
+  "description": "Self-hosted remote desktop with screen streaming and full input control (à la Chrome Remote Desktop), built on Electron + WebRTC + nut.js.",
+  "main": "host/main.js",
+  "author": "",
+  "license": "MIT",
+  "scripts": {
+    "server": "node server/index.js",
+    "host": "electron .",
+    "rebuild": "electron-rebuild -f -w @nut-tree-fork/libnut",
+    "postinstall": "electron-rebuild -f -w @nut-tree-fork/libnut || true"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

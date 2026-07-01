@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Wombat Remote</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="connect" class="panel">
+      <h1>Wombat Remote</h1>
+      <p class="sub">Enter the access code shown on the host machine.</p>
+      <input id="code" inputmode="numeric" autocomplete="off"
+             placeholder="123 456 789" maxlength="11" />
+      <button id="join">Connect</button>
+      <p id="error" class="error"></p>
+    </div>
+
+    <div id="session" class="hidden">
+      <div class="bar">
+        <span class="dot" id="dot"></span>
+        <span id="status">Connecting…</span>
+        <button id="fullscreen" title="Fullscreen">⛶</button>
+        <button id="disconnect" title="Disconnect">✕</button>
+      </div>
+      <video id="screen" autoplay playsinline></video>
+    </div>
+
+    <script src="client.js"></script>
+  </body>
+</html>

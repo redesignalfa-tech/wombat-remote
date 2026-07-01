@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self'; connect-src *; script-src 'self'; style-src 'self' 'unsafe-inline';" />
+    <title>Wombat Remote — Host</title>
+    <style>
+      :root { color-scheme: dark; }
+      body {
+        font-family: -apple-system, system-ui, sans-serif;
+        background: #16181d;
+        color: #e6e8ec;
+        margin: 0;
+        padding: 24px;
+      }
+      h1 { font-size: 18px; margin: 0 0 4px; }
+      p.sub { margin: 0 0 20px; color: #9aa0aa; font-size: 13px; }
+      label { font-size: 12px; color: #9aa0aa; display: block; margin-bottom: 6px; }
+      input {
+        width: 100%; box-sizing: border-box; padding: 9px 11px;
+        border: 1px solid #33373f; border-radius: 8px;
+        background: #1e2128; color: #e6e8ec; font-size: 14px;
+      }
+      button {
+        margin-top: 14px; width: 100%; padding: 10px;
+        border: 0; border-radius: 8px; background: #3b82f6; color: white;
+        font-size: 14px; font-weight: 600; cursor: pointer;
+      }
+      button:disabled { opacity: 0.5; cursor: default; }
+      .code {
+        margin-top: 22px; text-align: center;
+        font-size: 34px; letter-spacing: 4px; font-weight: 700;
+        color: #7dd3fc;
+      }
+      .code small { display: block; font-size: 12px; letter-spacing: normal; color: #9aa0aa; font-weight: 400; margin-bottom: 6px; }
+      .status { margin-top: 18px; font-size: 13px; color: #9aa0aa; text-align: center; }
+      .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #6b7280; margin-right: 6px; }
+      .dot.on { background: #22c55e; }
+    </style>
+  </head>
+  <body>
+    <h1>Wombat Remote — Host</h1>
+    <p class="sub">Share this machine's screen and let a client control it.</p>
+
+    <label for="server">Signaling server</label>
+    <input id="server" value="ws://localhost:8080" />
+    <button id="start">Start sharing</button>
+
+    <div class="code" id="code" style="display:none">
+      <small>Access code</small>
+      <span id="codeValue">— — —</span>
+    </div>
+
+    <div class="status"><span class="dot" id="dot"></span><span id="status">Idle</span></div>
+
+    <script src="renderer.js"></script>
+  </body>
+</html>
