@@ -11,6 +11,13 @@
     "rebuild": "electron-rebuild -f -w @nut-tree-fork/libnut",
     "postinstall": "electron-rebuild -f -w @nut-tree-fork/libnut || true"
   },
-  "dependencies": {},
-  "devDependencies": {}
+  "dependencies": {
+    "@nut-tree-fork/nut-js": "^4.2.6",
+    "express": "^4.22.2",
+    "ws": "^8.21.0"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.1.0",
+    "electron": "^43.0.0"
+  }
 }
