@@ -9,7 +9,31 @@
     "server": "node server/index.js",
     "host": "electron .",
     "rebuild": "electron-rebuild -f -w @nut-tree-fork/libnut",
-    "postinstall": "electron-rebuild -f -w @nut-tree-fork/libnut || true"
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win nsis",
+    "postinstall": "electron-rebuild -f -w @nut-tree-fork/libnut || exit 0"
+  },
+  "build": {
+    "appId": "com.wombat.remote",
+    "productName": "Wombat Remote",
+    "files": [
+      "host/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
   },
   "dependencies": {
     "@nut-tree-fork/nut-js": "^4.2.6",
@@ -18,6 +42,7 @@
   },
   "devDependencies": {
     "@electron/rebuild": "^4.1.0",
-    "electron": "^43.0.0"
+    "electron": "^43.0.0",
+    "electron-builder": "^25.0.0"
   }
 }

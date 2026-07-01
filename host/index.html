@@ -28,6 +28,7 @@
         font-size: 14px; font-weight: 600; cursor: pointer;
       }
       button:disabled { opacity: 0.5; cursor: default; }
+      button.stop { background: #ef4444; margin-top: 8px; }
       .code {
         margin-top: 22px; text-align: center;
         font-size: 34px; letter-spacing: 4px; font-weight: 700;
@@ -46,6 +47,7 @@
     <label for="server">Signaling server</label>
     <input id="server" value="ws://localhost:8080" />
     <button id="start">Start sharing</button>
+    <button id="stop" class="stop" style="display:none">Stop sharing</button>
 
     <div class="code" id="code" style="display:none">
       <small>Access code</small>

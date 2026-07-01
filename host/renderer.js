@@ -27,6 +27,7 @@ async function getIceServers() {
 const $ = (id) => document.getElementById(id);
 const serverInput = $('server');
 const startBtn = $('start');
+const stopBtn = $('stop');
 const codeBox = $('code');
 const codeValue = $('codeValue');
 const statusEl = $('status');
@@ -34,6 +35,8 @@ const dotEl = $('dot');
 
 let ws;
 let pc;
+let stream;
+let manualStop = false;
 
 function setStatus(text, connected = false) {
   statusEl.textContent = text;
@@ -45,10 +48,14 @@ function wsSend(msg) {
 }
 
 startBtn.addEventListener('click', () => {
+  manualStop = false;
   startBtn.disabled = true;
   serverInput.disabled = true;
+  stopBtn.style.display = 'block';
   connect(serverInput.value.trim());
 });
+
+stopBtn.addEventListener('click', stopSharing);
 
 function connect(url) {
   serverUrl = url;
@@ -84,11 +91,7 @@ function connect(url) {
     }
   };
 
-  ws.onclose = () => {
-    setStatus('Disconnected from server');
-    startBtn.disabled = false;
-    serverInput.disabled = false;
-  };
+  ws.onclose = () => resetUI(manualStop ? 'Idle' : 'Disconnected from server');
 
   ws.onerror = () => setStatus('Server connection error');
 }
@@ -99,7 +102,7 @@ function showCode(code) {
 }
 
 async function startSharing() {
-  const stream = await navigator.mediaDevices.getDisplayMedia({
+  stream = await navigator.mediaDevices.getDisplayMedia({
     video: { frameRate: 30 },
     audio: false,
   });
@@ -147,9 +150,34 @@ async function onSignal(signal) {
   }
 }
 
+// Stop the active session (screen capture + peer), but stay registered so a
+// new client can still connect with the same access code.
 function teardownPeer() {
   if (pc) {
     pc.close();
     pc = null;
   }
+  if (stream) {
+    stream.getTracks().forEach((t) => t.stop());
+    stream = null;
+  }
+}
+
+// Full stop: end the session and disconnect from the signaling server.
+function stopSharing() {
+  manualStop = true;
+  teardownPeer();
+  if (ws) {
+    ws.close();
+    ws = null;
+  }
+  resetUI('Idle');
+}
+
+function resetUI(statusText) {
+  codeBox.style.display = 'none';
+  stopBtn.style.display = 'none';
+  startBtn.disabled = false;
+  serverInput.disabled = false;
+  setStatus(statusText, false);
 }

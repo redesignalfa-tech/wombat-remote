@@ -57,6 +57,35 @@ npm run host
 2. Open **http://localhost:8080** in a browser, enter the code, click **Connect**.
 3. You now see and control the host's screen.
 
+## Install on Windows
+
+The host runs on Windows too — nut.js ships Windows prebuilds, and Windows shows
+no extra screen-capture/input permission prompts. Two options:
+
+**A. Run from source (quickest):**
+
+1. Install [Node.js](https://nodejs.org) (LTS) and [Git](https://git-scm.com/download/win).
+2. In PowerShell:
+   ```powershell
+   git clone https://github.com/redesignalfa-tech/wombat-remote.git
+   cd wombat-remote
+   npm install
+   npm run host
+   ```
+3. In the host window, set **Signaling server** to your server URL (e.g. your
+   `wss://…` tunnel or deployment) and click **Start sharing**.
+   To also run the signaling server on this machine: `npm run server`.
+
+**B. Build a real installer (.exe):**
+
+On the Windows machine (build on Windows so the native module matches):
+```powershell
+npm install
+npm run dist:win
+```
+electron-builder writes an NSIS installer to `dist/`
+(e.g. `Wombat Remote Setup 0.1.0.exe`) — double-click to install like any app.
+
 ## Use over the internet
 
 Only the **signaling server + web client** go online; the Electron host stays on
