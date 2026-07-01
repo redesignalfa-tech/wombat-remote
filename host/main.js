@@ -157,8 +157,31 @@ function buildKeyMap() {
   return map;
 }
 
+// Keys/buttons that can get "stuck" down if a keyup is missed (e.g. the client
+// loses focus because a local OS shortcut like Spotlight fired). `reset`
+// force-releases them so the host never gets wedged with a modifier held.
+const MODIFIER_KEYS = [
+  Key.LeftSuper, Key.RightSuper,
+  Key.LeftControl, Key.RightControl,
+  Key.LeftAlt, Key.RightAlt,
+  Key.LeftShift, Key.RightShift,
+];
+
+async function releaseAll() {
+  for (const b of [Button.LEFT, Button.MIDDLE, Button.RIGHT]) {
+    try { await mouse.releaseButton(b); } catch {}
+  }
+  for (const k of MODIFIER_KEYS) {
+    try { await keyboard.releaseKey(k); } catch {}
+  }
+}
+
 async function handleInput(ev) {
   try {
+    if (ev.t === 'reset') {
+      await releaseAll();
+      return;
+    }
     await ensureScreenSize();
     switch (ev.t) {
       case 'move':
@@ -203,6 +226,31 @@ async function handleInput(ev) {
   }
 }
 
-ipcMain.on('input', (_event, ev) => {
-  handleInput(ev);
-});
+// Serialize input so nut.js calls never race, and collapse consecutive mouse
+// moves to the newest one — otherwise a backlog of stale positions builds up
+// and the cursor feels laggy. Clicks/keys are never dropped.
+const inputQueue = [];
+let processing = false;
+
+function enqueueInput(ev) {
+  if (ev.t === 'move') {
+    const last = inputQueue[inputQueue.length - 1];
+    if (last && last.t === 'move') {
+      inputQueue[inputQueue.length - 1] = ev; // replace stale move
+      return runQueue();
+    }
+  }
+  inputQueue.push(ev);
+  runQueue();
+}
+
+async function runQueue() {
+  if (processing) return;
+  processing = true;
+  while (inputQueue.length) {
+    await handleInput(inputQueue.shift());
+  }
+  processing = false;
+}
+
+ipcMain.on('input', (_event, ev) => enqueueInput(ev));

@@ -103,23 +103,54 @@ function showCode(code) {
 
 async function startSharing() {
   stream = await navigator.mediaDevices.getDisplayMedia({
-    video: { frameRate: 30 },
+    video: { frameRate: { ideal: 30, max: 30 }, width: { max: 1920 }, height: { max: 1200 } },
     audio: false,
   });
+
+  // Prioritize a smooth frame rate over pixel-perfect detail, and cap the
+  // resolution so high-DPI (Retina) screens don't overwhelm the encoder.
+  const videoTrack = stream.getVideoTracks()[0];
+  try {
+    videoTrack.contentHint = 'motion';
+    await videoTrack.applyConstraints({
+      width: { max: 1920 },
+      height: { max: 1200 },
+      frameRate: { max: 30 },
+    });
+  } catch {
+    /* constraints are best-effort */
+  }
 
   pc = new RTCPeerConnection({ iceServers: await getIceServers() });
 
   stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
-  // The host owns the input data channel.
-  const channel = pc.createDataChannel('input');
-  channel.onmessage = (e) => {
+  // Raise the encoder's bitrate ceiling; the WebRTC default is far too low for
+  // a full desktop and shows up as blur or blank frames under motion.
+  const sender = pc.getSenders().find((s) => s.track && s.track.kind === 'video');
+  if (sender) {
+    const params = sender.getParameters();
+    if (!params.encodings || !params.encodings.length) params.encodings = [{}];
+    params.encodings[0].maxBitrate = 8_000_000;
+    params.encodings[0].maxFramerate = 30;
+    try {
+      await sender.setParameters(params);
+    } catch {
+      /* not all platforms allow live encoding tweaks */
+    }
+  }
+
+  // Two input channels: reliable/ordered for clicks & keys (must never be lost),
+  // and unreliable/unordered for mouse moves (drop stale ones to cut latency).
+  const onInput = (e) => {
     try {
       window.wombat.sendInput(JSON.parse(e.data));
     } catch {
       /* ignore malformed input */
     }
   };
+  pc.createDataChannel('input').onmessage = onInput;
+  pc.createDataChannel('move', { ordered: false, maxRetransmits: 0 }).onmessage = onInput;
 
   pc.onicecandidate = (e) => {
     if (e.candidate) wsSend({ type: 'signal', signal: { cand: e.candidate } });
@@ -153,6 +184,12 @@ async function onSignal(signal) {
 // Stop the active session (screen capture + peer), but stay registered so a
 // new client can still connect with the same access code.
 function teardownPeer() {
+  // Release any keys/buttons the client may have left held before it vanished.
+  try {
+    window.wombat.sendInput({ t: 'reset' });
+  } catch {
+    /* nothing to release */
+  }
   if (pc) {
     pc.close();
     pc = null;

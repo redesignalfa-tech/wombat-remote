@@ -32,8 +32,12 @@ const dotEl = $('dot');
 
 let ws;
 let pc;
-let channel;
-let lastMove = 0;
+let ctrlChannel; // reliable/ordered: clicks, keys, scroll, reset
+let moveChannel; // unreliable/unordered: mouse moves
+let inputAttached = false;
+const pressedKeys = new Set();
+let pendingMove = null;
+let moveScheduled = false;
 
 /* --- Access-code formatting (123 456 789) --------------------------------- */
 codeInput.addEventListener('input', () => {
@@ -111,11 +115,19 @@ async function setupPeer() {
     video.srcObject = e.streams[0];
   };
 
-  // Host creates the data channel; we receive it here.
+  // Host creates two channels; we receive them here.
   pc.ondatachannel = (e) => {
-    channel = e.channel;
-    channel.onopen = () => setStatus('Connected — you have control', true);
-    attachInput();
+    const ch = e.channel;
+    if (ch.label === 'move') {
+      moveChannel = ch;
+    } else {
+      ctrlChannel = ch;
+      ch.onopen = () => setStatus('Connected — you have control', true);
+    }
+    if (!inputAttached) {
+      inputAttached = true;
+      attachInput();
+    }
   };
 
   pc.onicecandidate = (e) => {
@@ -149,8 +161,24 @@ async function onSignal(signal) {
 
 /* --- Input capture -------------------------------------------------------- */
 
-function send(ev) {
-  if (channel && channel.readyState === 'open') channel.send(JSON.stringify(ev));
+function sendCtrl(ev) {
+  if (ctrlChannel && ctrlChannel.readyState === 'open') {
+    ctrlChannel.send(JSON.stringify(ev));
+  }
+}
+
+function sendMove(ev) {
+  const ch =
+    moveChannel && moveChannel.readyState === 'open' ? moveChannel : ctrlChannel;
+  if (ch && ch.readyState === 'open') ch.send(JSON.stringify(ev));
+}
+
+// Force-release every key/button on the host. Used when we lose focus or leave,
+// so a missed keyup can't leave a modifier stuck down on the remote machine.
+function releaseAll() {
+  for (const code of pressedKeys) sendCtrl({ t: 'key', code, down: false });
+  pressedKeys.clear();
+  sendCtrl({ t: 'reset' });
 }
 
 // Normalize pointer position to 0..1 within the *visible* video content.
@@ -170,21 +198,27 @@ function normalize(e) {
 }
 
 function attachInput() {
+  // Coalesce moves: keep only the newest position per animation frame so a
+  // burst of mousemove events can't build a backlog and make the cursor lag.
   video.addEventListener('mousemove', (e) => {
-    const now = performance.now();
-    if (now - lastMove < 16) return; // ~60 Hz cap
-    lastMove = now;
-    send({ t: 'move', ...normalize(e) });
+    pendingMove = normalize(e);
+    if (moveScheduled) return;
+    moveScheduled = true;
+    requestAnimationFrame(() => {
+      moveScheduled = false;
+      if (pendingMove) {
+        sendMove({ t: 'move', ...pendingMove });
+        pendingMove = null;
+      }
+    });
   });
 
   video.addEventListener('mousedown', (e) => {
     e.preventDefault();
-    send({ t: 'down', button: e.button, ...normalize(e) });
+    sendCtrl({ t: 'down', button: e.button, ...normalize(e) });
   });
 
-  window.addEventListener('mouseup', (e) => {
-    send({ t: 'up', button: e.button });
-  });
+  window.addEventListener('mouseup', (e) => sendCtrl({ t: 'up', button: e.button }));
 
   video.addEventListener('contextmenu', (e) => e.preventDefault());
 
@@ -192,21 +226,36 @@ function attachInput() {
     'wheel',
     (e) => {
       e.preventDefault();
-      send({ t: 'scroll', dx: e.deltaX, dy: e.deltaY });
+      sendCtrl({ t: 'scroll', dx: e.deltaX, dy: e.deltaY });
     },
     { passive: false }
   );
 
   window.addEventListener('keydown', (e) => {
     if (sessionPanel.classList.contains('hidden')) return;
+    // Local-only escape hatch — never forwarded to the host.
+    if (e.ctrlKey && e.altKey && e.code === 'KeyQ') {
+      e.preventDefault();
+      disconnect();
+      return;
+    }
     e.preventDefault();
-    send({ t: 'key', code: e.code, down: true });
+    pressedKeys.add(e.code);
+    sendCtrl({ t: 'key', code: e.code, down: true });
   });
 
   window.addEventListener('keyup', (e) => {
     if (sessionPanel.classList.contains('hidden')) return;
     e.preventDefault();
-    send({ t: 'key', code: e.code, down: false });
+    pressedKeys.delete(e.code);
+    sendCtrl({ t: 'key', code: e.code, down: false });
+  });
+
+  // Losing focus (e.g. an OS shortcut like Spotlight steals it) means keyups may
+  // never arrive — release everything so nothing stays stuck on the host.
+  window.addEventListener('blur', releaseAll);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) releaseAll();
   });
 }
 
@@ -216,8 +265,11 @@ $('fullscreen').addEventListener('click', () => {
   else document.exitFullscreen();
 });
 
-$('disconnect').addEventListener('click', () => {
+function disconnect() {
+  releaseAll();
   if (pc) pc.close();
   if (ws) ws.close();
   location.reload();
-});
+}
+
+$('disconnect').addEventListener('click', disconnect);
